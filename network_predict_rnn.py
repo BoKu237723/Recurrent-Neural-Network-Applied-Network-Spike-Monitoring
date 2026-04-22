@@ -57,14 +57,15 @@ class NetworkTrafficRNN:
         return (data - self.mean) / self.std
     
     def denormalize(self, data):
-        """Convert normalized data back to original scale"""
-        return data * self.std + self.mean
+        """Convert normalized data back to original scale and round to integers"""
+        denormalized = data * self.std + self.mean
+        return np.round(denormalized).astype(int)  # Round to nearest integer
     
     def load_data(self, filename):
         """Load network traffic data from file"""
         with open(filename, 'r') as f:
             content = f.read()
-            data = [float(x) for x in content.split() if x.strip()]
+            data = [int(x) for x in content.split() if x.strip()]
         
         return np.array(data)
     
@@ -261,30 +262,30 @@ class NetworkTrafficRNN:
         return losses
     
     def predict_sequence(self, seed_sequence, num_predictions):
-            """
-            Predict future values given a seed sequence
-            """
-            predictions = []
-            current_sequence = seed_sequence.tolist() 
+        """
+        Predict future values given a seed sequence
+        """
+        predictions = []
+        current_sequence = seed_sequence.tolist() 
+        
+        for _ in range(num_predictions):
+            # Use the last 'sequence_length' values as context
+            context = current_sequence[-self.sequence_length:]
             
-            for _ in range(num_predictions):
-                # Use the last 'sequence_length' values as context
-                context = current_sequence[-self.sequence_length:]
-                
-                # Forward pass through RNN
-                h = np.zeros((self.hidden_size, 1))
-                for t in range(len(context)):
-                    x = np.array([[context[t]]])
-                    h = np.tanh(np.dot(self.Wxh, x) + np.dot(self.Whh, h) + self.bh)
-                
-                # Generate prediction
-                y = np.dot(self.Why, h) + self.by
-                prediction = y[0, 0]
-                
-                predictions.append(prediction)
-                current_sequence.append(prediction) # Now this works!
+            # Forward pass through RNN
+            h = np.zeros((self.hidden_size, 1))
+            for t in range(len(context)):
+                x = np.array([[context[t]]])
+                h = np.tanh(np.dot(self.Wxh, x) + np.dot(self.Whh, h) + self.bh)
             
-            return np.array(predictions)
+            # Generate prediction
+            y = np.dot(self.Why, h) + self.by
+            prediction = y[0, 0]
+            
+            predictions.append(prediction)
+            current_sequence.append(prediction)
+        
+        return np.array(predictions)
     
     def predict_week(self, historical_data, lookback_hours=24):
         """
@@ -303,7 +304,7 @@ class NetworkTrafficRNN:
         num_predictions = 7 * 288
         predictions_normalized = self.predict_sequence(seed_normalized, num_predictions)
         
-        # Denormalize predictions
+        # Denormalize predictions (automatically rounds to integers)
         predictions = self.denormalize(predictions_normalized)
         
         return predictions
@@ -325,7 +326,7 @@ def main():
     try:
         data = rnn.load_data("network_traffic_5min_2weeks.txt")
         print(f"   Loaded {len(data)} data points (2 weeks of 5-min intervals)")
-        print(f"   Data range: {np.min(data):.1f} MB to {np.max(data):.1f} MB")
+        print(f"   Data range: {np.min(data)} MB to {np.max(data)} MB")
         print(f"   Average: {np.mean(data):.1f} MB")
     except FileNotFoundError:
         print("   Error: network_traffic_5min_2weeks.txt not found!")
@@ -354,17 +355,17 @@ def main():
     print(f"\n5. Saving predictions to {output_file}...")
     
     with open(output_file, "w") as f:
-        # Write predictions
+        # Write predictions as integers
         for i, value in enumerate(predictions):
-            f.write(f"{value} ")
+            f.write(f"{int(value)} ")  # Ensure integer output
     
-    # Print summary statistics
+    # Print summary statistics (all integers now)
     print("\n" + "=" * 60)
     print("PREDICTION SUMMARY")
     print("=" * 60)
     print(f"Total predictions: {len(predictions)}")
-    print(f"Predicted max traffic: {np.max(predictions):.1f} MB")
-    print(f"Predicted min traffic: {np.min(predictions):.1f} MB")
+    print(f"Predicted max traffic: {np.max(predictions)} MB")
+    print(f"Predicted min traffic: {np.min(predictions)} MB")
     print(f"Predicted average: {np.mean(predictions):.1f} MB")
     
     # Calculate daily averages

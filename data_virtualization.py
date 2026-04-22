@@ -31,7 +31,7 @@ ax.axhline(y=40, color='green', linestyle='--', alpha=0.5, linewidth=1, label='N
 
 # Add vertical lines for day boundaries (every 288 intervals = 1 day)
 for day in range(1, DAYS):
-    ax.axvline(timeline[day*288], color='gray', alpha=0.2, linewidth=0.5)
+    ax.axvline(timeline[day*144], color='gray', alpha=0.2, linewidth=0.5) ## edit this based on training file
 
 # Set y-axis limits
 ax.set_ylim(0, max(data) + 50)
