@@ -3,12 +3,12 @@ from collections import defaultdict
 import datetime
 
 class NetworkTrafficRNN:
-    def __init__(self, hidden_size=64, learning_rate=0.01, sequence_length=12):
+    def __init__(self, hidden_size=64, learning_rate=0.01, sequence_length=84):
         """
         Initialize RNN for network traffic prediction
         hidden_size: number of hidden units
         learning_rate: learning rate for training
-        sequence_length: number of time steps to look back (default 12 = 1 hour at 5-min intervals)
+        sequence_length: number of time steps to look back (default 12 = 1 day at 2-hour intervals)
         """
         self.hidden_size = hidden_size
         self.learning_rate = learning_rate
@@ -147,7 +147,7 @@ class NetworkTrafficRNN:
         
         return dWxh, dWhh, dWhy, dbh, dby
     
-    def train(self, X, y, epochs=50, batch_size=32, verbose=True):
+    def train(self, X, y, epochs=200, batch_size=32, verbose=True):
         """
         Train the RNN using Adam optimizer
         """
@@ -287,21 +287,21 @@ class NetworkTrafficRNN:
         
         return np.array(predictions)
     
-    def predict_week(self, historical_data, lookback_hours=24):
+    def predict_week(self, historical_data, lookback_days=7):
         """
         Predict network traffic for the next week
         historical_data: full historical data array
-        lookback_hours: number of hours to look back (default 24)
+        lookback_days: number of days to look back (default 7)
         """
-        # Calculate how many 5-min intervals to look back
-        lookback_intervals = lookback_hours * (60 // 5)  # 12 intervals per hour
+        # Calculate how many 2-hour intervals to look back
+        lookback_intervals = lookback_days * 12  # 12 intervals per day (24h / 2h)
         
         # Use the last 'lookback_intervals' as seed
         seed = historical_data[-lookback_intervals:]
         seed_normalized = self.normalize(seed)
         
-        # Predict for one week (7 days * 288 intervals per day)
-        num_predictions = 7 * 288
+        # Predict for one week (7 days * 12 intervals per day)
+        num_predictions = 7 * 12  # 84 predictions total
         predictions_normalized = self.predict_sequence(seed_normalized, num_predictions)
         
         # Denormalize predictions (automatically rounds to integers)
@@ -311,25 +311,26 @@ class NetworkTrafficRNN:
 
 def main():
     print("=" * 60)
-    print("Network Traffic Prediction using RNN")
+    print("Network Traffic Prediction using RNN (2-hour intervals)")
     print("=" * 60)
     
     # Initialize RNN
     rnn = NetworkTrafficRNN(
-        hidden_size=128,
+        hidden_size=64,
         learning_rate=0.001,
-        sequence_length=24  # Look back 2 hours (24 * 5 min intervals)
+        sequence_length=84  # Look back 1 day (12 intervals of 2 hours)
     )
     
     # Load data
     print("\n1. Loading network traffic data...")
     try:
-        data = rnn.load_data("network_traffic_5min_2weeks.txt")
-        print(f"   Loaded {len(data)} data points (2 weeks of 5-min intervals)")
+        data = rnn.load_data("network_traffic_2hour_2weeks.txt")
+        print(f"   Loaded {len(data)} data points (14 days of 2-hour intervals)")
         print(f"   Data range: {np.min(data)} MB to {np.max(data)} MB")
         print(f"   Average: {np.mean(data):.1f} MB")
+        print(f"   Intervals per day: 12 (every 2 hours)")
     except FileNotFoundError:
-        print("   Error: network_traffic_5min_2weeks.txt not found!")
+        print("   Error: network_traffic_2hour_2weeks.txt not found!")
         print("   Please run data_generation.py first to generate the data.")
         return
     
@@ -337,21 +338,21 @@ def main():
     print("\n2. Preparing training data...")
     X, y = rnn.prepare_training_data(data)
     print(f"   Created {len(X)} training sequences")
-    print(f"   Sequence length: {rnn.sequence_length} intervals ({rnn.sequence_length * 5} minutes)")
+    print(f"   Sequence length: {rnn.sequence_length} intervals ({rnn.sequence_length * 2} hours = {rnn.sequence_length * 2 / 24:.1f} days)")
     
     # Train the model
     print("\n3. Training RNN model...")
-    print("   This may take a few minutes...")
-    losses = rnn.train(X, y, epochs=50, batch_size=64, verbose=True)
+    print("   This may take a minute...")
+    losses = rnn.train(X, y, epochs=200, batch_size=32, verbose=True)
     print("   Training completed!")
     
     # Predict next week
     print("\n4. Predicting network traffic for next week...")
-    predictions = rnn.predict_week(data, lookback_hours=24)
-    print(f"   Generated {len(predictions)} predictions (7 days)")
+    predictions = rnn.predict_week(data, lookback_days=7)
+    print(f"   Generated {len(predictions)} predictions (7 days × 12 intervals = {len(predictions)} total)")
     
     # Save predictions to file
-    output_file = "predicted_pattern.txt"
+    output_file = "predicted_pattern_2hour.txt"
     print(f"\n5. Saving predictions to {output_file}...")
     
     with open(output_file, "w") as f:
@@ -359,32 +360,41 @@ def main():
         for i, value in enumerate(predictions):
             f.write(f"{int(value)} ")  # Ensure integer output
     
-    # Print summary statistics (all integers now)
+    # Print summary statistics
     print("\n" + "=" * 60)
-    print("PREDICTION SUMMARY")
+    print("PREDICTION SUMMARY (2-hour intervals)")
     print("=" * 60)
     print(f"Total predictions: {len(predictions)}")
-    print(f"Predicted max traffic: {np.max(predictions)} MB")
-    print(f"Predicted min traffic: {np.min(predictions)} MB")
-    print(f"Predicted average: {np.mean(predictions):.1f} MB")
+    print(f"Predicted max traffic: {np.max(predictions)} MB per 2 hours")
+    print(f"Predicted min traffic: {np.min(predictions)} MB per 2 hours")
+    print(f"Predicted average: {np.mean(predictions):.1f} MB per 2 hours")
     
     # Calculate daily averages
-    print("\nDaily average predictions:")
+    print("\nDaily average predictions (MB per 2-hour interval):")
     for day in range(7):
-        start_idx = day * 288
-        end_idx = (day + 1) * 288
+        start_idx = day * 12
+        end_idx = (day + 1) * 12
         daily_avg = np.mean(predictions[start_idx:end_idx])
-        print(f"  Day {day + 1}: {daily_avg:.1f} MB per 5-min interval")
+        print(f"  Day {day + 1}: {daily_avg:.1f} MB")
+    
+    # Calculate daily totals (GB per day)
+    print("\nDaily total traffic predictions:")
+    for day in range(7):
+        start_idx = day * 12
+        end_idx = (day + 1) * 12
+        daily_total_mb = np.sum(predictions[start_idx:end_idx])
+        daily_total_gb = daily_total_mb / 1024
+        print(f"  Day {day + 1}: {daily_total_mb:,.0f} MB ({daily_total_gb:.1f} GB)")
     
     # Identify peak periods
     peak_24h_windows = []
-    for i in range(0, len(predictions) - 288, 12):  # Slide every hour
-        window_avg = np.mean(predictions[i:i+288])
+    for i in range(0, len(predictions) - 12, 1):  # Slide every interval
+        window_avg = np.mean(predictions[i:i+12])
         peak_24h_windows.append(window_avg)
     
     if peak_24h_windows:
         max_peak = max(peak_24h_windows)
-        print(f"\nHighest predicted 24-hour average: {max_peak:.1f} MB per 5-min interval")
+        print(f"\nHighest predicted 24-hour average: {max_peak:.1f} MB per 2-hour interval")
     
     print("\n" + "=" * 60)
     print(f"Predictions saved to {output_file}")

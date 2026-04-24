@@ -7,29 +7,26 @@ INTERVALS_PER_DAY = 24 // INTERVAL_HOURS   # 12
 DAYS = 14  # two weeks
 
 # Base traffic patterns (in MB per 2-hour interval)
-# Adjusted to maintain realistic total volume (scaled from 5-min to 2-hour)
 # Original 5-min peak: 280 MB → 2-hour peak: 280 * (120/5) = 280 * 24 = 6,720 MB
 PEAK_2HOUR_MB = 6720      # ~3.36 GB/hour peak
 OFF_PEAK_2HOUR_MB = 2880  # ~1.44 GB/hour
 NIGHT_2HOUR_MB = 720      # ~0.36 GB/hour
 WEEKEND_BASE_MB = 1440    # lower baseline for weekends (60 * 24)
 
-# More aggressive noise: ±30% random variation + occasional large spikes
+# REDUCED NOISE: ±10% random variation + rare small spikes
 def add_noise(value):
-    # Larger random variation (±30%)
-    noise_factor = random.uniform(0.70, 1.30)
-    # Occasional medium spike (+0 to +3600 MB) - 15% of intervals
-    # (scaled from 5-min spike of 20-150 MB: multiply by 24)
-    if random.random() < 0.15:
-        spike = random.randint(500, 3600)
-    # Rare large spike (+4800 to +9600 MB) - 3% of intervals
-    # (scaled from 5-min spike of 200-400 MB: multiply by 24)
-    elif random.random() < 0.03:
-        spike = random.randint(4800, 9600)
+    # Smaller random variation (±10%)
+    noise_factor = random.uniform(0.90, 1.10)
+    # Occasional small spike (+0 to +1200 MB) - 10% of intervals
+    if random.random() < 0.10:
+        spike = random.randint(100, 1200)
+    # Rare medium spike (+1200 to +2400 MB) - 2% of intervals
+    elif random.random() < 0.02:
+        spike = random.randint(1200, 2400)
     else:
         spike = 0
     final = int(value * noise_factor) + spike
-    return max(120, final)  # never below 120 MB (5 MB * 24)
+    return max(120, final)  # never below 120 MB
 
 def get_base_traffic(dt):
     hour = dt.hour
