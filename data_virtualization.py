@@ -47,14 +47,6 @@ ax.xaxis.set_major_formatter(mdates.DateFormatter('%A'))  # %A = full weekday na
 ax.xaxis.set_major_locator(mdates.DayLocator(interval=1))  # Tick every day
 plt.xticks(rotation=45, ha='right')
 
-# Optional: Adjust for better readability if needed
-# For abbreviated names (Mon, Tue, Wed...), use '%a' instead of '%A'
-
-# Optional: Show every 2nd day label to avoid overlap, but keep all days visible
-# If labels overlap, uncomment this line:
-# ax.xaxis.set_major_locator(mdates.DayLocator(interval=1))
-# ax.xaxis.set_minor_locator(mdates.DayLocator(interval=1))
-
 plt.tight_layout()
 plt.show()
 
